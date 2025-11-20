@@ -20,7 +20,6 @@ export const config = {
   jwtSecret: requireEnv('JWT_SECRET'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
 
-  // ini opsional, jadi nggak pakai requireEnv
   rabbitUrl: process.env.RABBITMQ_URL || '',
   midtransApiKey: process.env.MIDTRANS_API_KEY || '',
 
