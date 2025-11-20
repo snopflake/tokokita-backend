@@ -1,11 +1,10 @@
-// src/app.ts
-import express from 'express';
-import type { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
+import orderRoutes from './routes/order.routes';   
 
 const app = express();
 
@@ -19,6 +18,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api', orderRoutes);   
 
 app.use(errorHandler);
 
