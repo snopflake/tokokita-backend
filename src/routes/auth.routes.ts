@@ -6,15 +6,24 @@ const router = Router();
 
 router.post('/register', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    const { fullName, email, password } = req.body; 
+
+    if (!fullName || !email || !password) {
+      return res
+        .status(400)
+        .json({ message: 'Full name, email and password are required' });
     }
 
-    const { user, token } = await registerUser(email, password);
+    const { user, token } = await registerUser(fullName, email, password);
+
     res.status(201).json({
       token,
-      user: { id: user._id, email: user.email, role: user.role }
+      user: {
+        id: user._id,
+        fullName: user.fullName, 
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (err) {
     next(err);
