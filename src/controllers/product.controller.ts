@@ -6,13 +6,9 @@ export class ProductController {
   static async getProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const search = typeof req.query.search === 'string' ? req.query.search : undefined;
-
       const products = await ProductService.getProducts(search);
 
-      return res.json({
-        success: true,
-        data: products,
-      });
+      return res.json({ success: true, data: products });
     } catch (err) {
       next(err);
     }
@@ -20,28 +16,18 @@ export class ProductController {
 
   static async getProductById(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
-
-      if (Number.isNaN(id)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Product ID tidak valid',
-        });
-      }
+      const id = req.params.id; // pakai string ObjectId
 
       const product = await ProductService.getProductById(id);
 
       if (!product) {
         return res.status(404).json({
           success: false,
-          message: 'Produk tidak ditemukan',
+          message: 'Produk tidak ditemukan'
         });
       }
 
-      return res.json({
-        success: true,
-        data: product,
-      });
+      return res.json({ success: true, data: product });
     } catch (err) {
       next(err);
     }
