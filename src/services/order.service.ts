@@ -1,48 +1,90 @@
-// src/services/order.service.ts
-import { Order } from '../models/Order';
-import { encrypt } from '../config/security';
-import { createPayment } from './payment.service';
-import mongoose from 'mongoose';
+import { Order } from '../models/order.model';
+import { Product } from '../models/product.model';
 
-interface OrderItemPayload {
+interface CheckoutItemInput {
   productId: string;
-  name: string;
-  price: number;
   quantity: number;
 }
 
-interface CreateOrderPayload {
-  items: OrderItemPayload[];
-  totalAmount: number;
-  address: string;
-  phone: string;
+interface CheckoutInput {
+  userId: string;
+  items: CheckoutItemInput[];
 }
 
-export async function createOrder(
-  userId: string,
-  payload: CreateOrderPayload
-) {
-  const { items, totalAmount, address, phone } = payload;
+function generateInvoiceNumber(): string {
+  const now = new Date();
 
-  if (!items || !items.length) {
-    throw new Error('Order items cannot be empty');
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+
+  // Timestamp biar pasti unik
+  const timestamp = Date.now();
+
+  return `INV-${year}${month}${day}-${timestamp}`;
+}
+
+
+export async function checkoutService(input: CheckoutInput) {
+  const { userId, items } = input;
+
+  if (!items || items.length === 0) {
+    throw new Error('Keranjang kosong');
   }
 
-  // Panggil payment gateway (simulasi)
-  const payment = await createPayment(totalAmount);
+  const productIds = items.map((i) => i.productId);
+  const dbProducts = await Product.find({ _id: { $in: productIds } });
 
-  const encryptedAddress = encrypt(address);
-  const encryptedPhone = encrypt(phone);
+  if (dbProducts.length !== items.length) {
+    throw new Error('Beberapa produk tidak ditemukan');
+  }
+
+  const orderItems = [];
+  let totalAmount = 0;
+
+  for (const item of items) {
+    const prod = dbProducts.find(
+      (p) => p._id.toString() === item.productId
+    );
+    if (!prod) throw new Error('Produk tidak ditemukan');
+
+    if (prod.stock < item.quantity) {
+      throw new Error(`Stok tidak cukup untuk produk: ${prod.name}`);
+    }
+
+    const subtotal = prod.price * item.quantity;
+    totalAmount += subtotal;
+
+    orderItems.push({
+      productId: prod._id,
+      name: prod.name,
+      price: prod.price,
+      quantity: item.quantity,
+      subtotal,
+    });
+  }
+
+  
+  const invoiceNumber = generateInvoiceNumber();
 
   const order = await Order.create({
-    userId: new mongoose.Types.ObjectId(userId),
-    items,
+    userId,
+    items: orderItems,
     totalAmount,
-    encryptedAddress,
-    encryptedPhone,
-    paymentStatus: payment.status,
-    paymentTransactionId: payment.transactionId
+    invoiceNumber,
+    paymentStatus: 'PENDING',
   });
 
-  return { order, payment };
+  // simulasi payment + update stok
+  for (const item of items) {
+    await Product.updateOne(
+      { _id: item.productId },
+      { $inc: { stock: -item.quantity } }
+    );
+  }
+
+  order.paymentStatus = 'PAID_SIMULATED';
+  await order.save();
+
+  return order;
 }
