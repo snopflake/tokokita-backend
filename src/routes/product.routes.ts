@@ -1,7 +1,7 @@
 // src/routes/product.routes.ts
 import { Router } from 'express';
 import { ProductController } from '../controllers/product.controller';
-// import { authMiddleware } from '../middlewares/auth.middleware'; // kalau mau proteksi
+import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 
@@ -11,6 +11,16 @@ const router = Router();
  *   - ?search=keyword
  */
 router.get('/', ProductController.getProducts);
+
+/**
+ * GET /api/products/recommendations
+ * (HARUS di atas '/:id')
+ */
+router.get(
+  '/recommendations',
+  authMiddleware,
+  ProductController.getRecommendedProducts
+);
 
 /**
  * GET /api/products/:id
