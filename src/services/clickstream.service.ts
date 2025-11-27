@@ -23,6 +23,6 @@ export async function handleClickEvent(payload: ClickstreamPayload) {
   // - Normalisasi action
   // - Tambah metadata (user agent, ip, dsb) kalau perlu
 
-  // Kirim ke RabbitMQ
+  // Kirim ke RabbitMQ (via AMQP)
   await publishClickEvent(payload);
 }
