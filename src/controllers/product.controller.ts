@@ -36,47 +36,45 @@ export class ProductController {
     }
   }
 
-   static async getRecommendedProducts(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-  ) {
-    try {
-      const userId = req.user?.userId;
-      const sessionId = req.query.sessionId as string | undefined;
+    static async getRecommendedProducts(
+      req: AuthRequest,
+      res: Response,
+      next: NextFunction
+    ) {
+      try {
+        const userId = req.user?.userId;
+        const sessionId = req.query.sessionId as string | undefined;
 
-      // userKey = userId kalau login, kalau belum ya pakai session
-      const userKey = userId ?? (sessionId ? `session:${sessionId}` : undefined);
+        const userKey = userId ?? (sessionId ? `session:${sessionId}` : undefined);
 
-      let productIds: string[] = [];
+        if (!userKey) {
+          // Tidak punya user/session → tidak ada rekomendasi
+          return res.json([]);
+        }
 
-      if (userKey) {
         const stats = await UserProductStat.find({ userKey })
           .sort({ score: -1, lastActionAt: -1 })
           .limit(4)
           .lean();
 
-        productIds = stats.map((s) => s.productId.toString());
-      }
+        if (stats.length === 0) {
+          // User belum punya jejak clickstream → kosong
+          return res.json([]);
+        }
 
-      let products;
+        const productIds = stats.map((s) => s.productId.toString());
 
-      if (productIds.length > 0) {
         const docs = await Product.find({ _id: { $in: productIds } }).lean();
         const map = new Map(docs.map((p: any) => [p._id.toString(), p]));
-        products = productIds
+
+        const products = productIds
           .map((id) => map.get(id))
           .filter((p) => p !== undefined);
-      } else {
-        // fallback sederhana: produk terbaru
-        products = await Product.find().sort({ createdAt: -1 }).limit(4).lean();
+
+        return res.json(products);
+      } catch (err) {
+        next(err);
       }
-
-      res.json(products);
-    } catch (err) {
-      next(err);
     }
-  }
 }
-
 
