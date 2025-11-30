@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes';
 import orderRoutes from './routes/order.routes';
 import clickstreamRoutes from './routes/clickstream.routes';
 import productRoutes from './routes/product.routes';
+import midtransRoutes from './routes/midtrans.routes';
 
 const app = express();
 
@@ -25,6 +26,8 @@ app.use('/api', orderRoutes);
 app.use('/api', clickstreamRoutes); 
 
 app.use('/api/products', productRoutes);
+
+app.use('/api/payment', midtransRoutes);
 
 app.use(errorHandler);
 

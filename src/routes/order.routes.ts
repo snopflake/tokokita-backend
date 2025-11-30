@@ -1,3 +1,4 @@
+// src/routes/order.routes.ts
 import { Router } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/authMiddleware';
 import { checkoutService } from '../services/order.service';
@@ -14,6 +15,15 @@ router.post(
       const userId = req.user!.userId;
       const { items, address, phone } = req.body;
 
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: 'Items is required' });
+      }
+      if (!address || !phone) {
+        return res
+          .status(400)
+          .json({ message: 'Address and phone are required' });
+      }
+
       const order = await checkoutService({
         userId,
         items,
@@ -21,9 +31,13 @@ router.post(
         phone,
       });
 
+      // di sini order sudah punya midtransRedirectUrl
       res.status(201).json({
-        message: 'Checkout berhasil (payment simulated)',
-        order,
+        message: 'Checkout berhasil, silakan lakukan pembayaran via Midtrans',
+        orderId: order._id,
+        invoiceNumber: order.invoiceNumber,
+        paymentStatus: order.paymentStatus, // biasanya WAITING_PAYMENT
+        midtransRedirectUrl: order.midtransRedirectUrl,
       });
     } catch (err) {
       next(err);
@@ -41,14 +55,21 @@ router.get(
 
       const orders = await Order.find({ userId }).sort({ createdAt: -1 });
 
-      // 🔐 tambahkan field address & phone hasil dekripsi
       const result = (orders as IOrder[]).map((order) => {
         const { address, phone } = order.getContactInfo();
         const plain = order.toObject();
+
+        // sembunyikan field yang sensitif/kurang perlu di UI
+        delete (plain as any).addressEnc;
+        delete (plain as any).phoneEnc;
+        delete (plain as any).midtransStatusRaw;
+
         return {
           ...plain,
           address,
           phone,
+          // paymentStatus sudah ada di plain, tapi kita pastikan ada
+          paymentStatus: order.paymentStatus,
         };
       });
 
@@ -68,7 +89,10 @@ router.get(
       const userId = req.user!.userId;
       const orderId = req.params.id;
 
-      const order = await Order.findOne({ _id: orderId, userId }) as IOrder | null;
+      const order = (await Order.findOne({
+        _id: orderId,
+        userId,
+      })) as IOrder | null;
 
       if (!order) {
         return res.status(404).json({ message: 'Order tidak ditemukan' });
@@ -77,10 +101,15 @@ router.get(
       const { address, phone } = order.getContactInfo();
       const plain = order.toObject();
 
+      delete (plain as any).addressEnc;
+      delete (plain as any).phoneEnc;
+      delete (plain as any).midtransStatusRaw;
+
       res.json({
         ...plain,
         address,
         phone,
+        paymentStatus: order.paymentStatus, // bisa PENDING / WAITING_PAYMENT / PAID / FAILED
       });
     } catch (err) {
       next(err);
