@@ -1,5 +1,9 @@
+// src/services/order.service.ts
+
 import { Order } from '../models/order.model';
 import { Product } from '../models/product.model';
+import { User } from '../models/User';
+import { createMidtransTransaction } from './midtrans.service';
 
 interface CheckoutItemInput {
   productId: string;
@@ -31,6 +35,7 @@ function generateInvoiceNumber(): string {
 export async function checkoutService(input: CheckoutInput) {
   const { userId, items, address, phone } = input;
 
+  // --- Validasi dasar ---
   if (!items || items.length === 0) {
     throw new Error('Keranjang kosong');
   }
@@ -39,6 +44,7 @@ export async function checkoutService(input: CheckoutInput) {
     throw new Error('Alamat dan nomor telepon wajib diisi');
   }
 
+  // --- Ambil produk dari DB ---
   const productIds = items.map((i) => i.productId);
   const dbProducts = await Product.find({ _id: { $in: productIds } });
 
@@ -79,29 +85,51 @@ export async function checkoutService(input: CheckoutInput) {
 
   const invoiceNumber = generateInvoiceNumber();
 
-  // 🔐 gunakan constructor + helper supaya alamat/HP terenkripsi
+  // --- Ambil data user untuk customer_details Midtrans ---
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error('User tidak ditemukan');
+  }
+
+  // --- Buat Order di MongoDB (belum dibayar) ---
   const order = new Order({
     userId,
     items: orderItems,
     totalAmount,
     invoiceNumber,
-    paymentStatus: 'PENDING',
+    paymentStatus: 'WAITING_PAYMENT', // menunggu pembayaran Midtrans
   });
 
+  // 🔐 simpan alamat & no HP terenkripsi di DB
   order.setContactInfo(address, phone);
 
+  // --- Panggil Midtrans Snap (Sandbox) ---
+  const midtransTransaction: any = await createMidtransTransaction({
+    orderId: invoiceNumber,
+    grossAmount: totalAmount,
+    customer: {
+      fullName: user.fullName,
+      email: user.email,
+      phone,
+    },
+  });
+
+  // Simpan informasi terkait Midtrans ke dalam Order
+  order.midtransOrderId = invoiceNumber;
+  order.midtransTransactionId = midtransTransaction.transaction_id;
+  order.midtransRedirectUrl = midtransTransaction.redirect_url;
+  order.midtransStatusRaw = midtransTransaction;
+
   await order.save();
 
-  // simulasi payment + update stok
-  for (const item of items) {
-    await Product.updateOne(
-      { _id: item.productId },
-      { $inc: { stock: -item.quantity } }
-    );
-  }
-
-  order.paymentStatus = 'PAID_SIMULATED';
-  await order.save();
+  /**
+   * ⚠️ Penting:
+   * - Kita TIDAK langsung mengurangi stok dan TIDAK set status PAID di sini.
+   * - Idealnya, stok dikurangi & paymentStatus diubah ke 'PAID'
+   *   setelah Midtrans mengirim notifikasi (callback) bahwa transaksi settlement.
+   *
+   * Nanti bisa kita tambahkan di endpoint /api/payment/midtrans/callback.
+   */
 
   return order;
 }

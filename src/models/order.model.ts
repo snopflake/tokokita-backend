@@ -14,7 +14,13 @@ export interface IOrder extends Document {
   items: IOrderItem[];
   totalAmount: number;
   invoiceNumber: string;
-  paymentStatus: 'PENDING' | 'PAID_SIMULATED' | 'FAILED';
+
+  paymentStatus: 'PENDING' | 'PAID_SIMULATED' | 'FAILED' | 'WAITING_PAYMENT' | 'PAID';
+  midtransOrderId?: string;
+  midtransTransactionId?: string;
+  midtransRedirectUrl?: string;
+  midtransStatusRaw?: any;
+
   createdAt: Date;
   updatedAt: Date;
 
@@ -52,9 +58,14 @@ const OrderSchema = new Schema<IOrder>(
     invoiceNumber: { type: String, required: true, unique: true },
     paymentStatus: {
       type: String,
-      enum: ['PENDING', 'PAID_SIMULATED', 'FAILED'],
+      enum: ['PENDING', 'PAID_SIMULATED', 'FAILED', 'WAITING_PAYMENT', 'PAID'],
       default: 'PENDING',
     },
+
+    midtransOrderId: { type: String },
+    midtransTransactionId: { type: String },
+    midtransRedirectUrl: { type: String },
+    midtransStatusRaw: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );

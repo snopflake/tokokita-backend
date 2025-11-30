@@ -3,7 +3,14 @@ import bcrypt from 'bcryptjs';
 import { User } from '../models/User';
 import { signToken } from '../utils/jwt';
 
-export async function registerUser(fullName: string, email: string, password: string) {
+// address & phone dibuat optional supaya tidak merusak client lama
+export async function registerUser(
+  fullName: string,
+  email: string,
+  password: string,
+  address?: string,
+  phone?: string
+) {
   const existing = await User.findOne({ email });
   if (existing) {
     throw new Error('Email already registered');
@@ -11,12 +18,20 @@ export async function registerUser(fullName: string, email: string, password: st
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const user = await User.create({
-    fullName,        
+  // buat user dulu
+  const user = new User({
+    fullName,
     email,
     passwordHash,
     role: 'user',
   });
+
+  // kalau address & phone ada di body → simpan terenkripsi
+  if (address && phone) {
+    user.setContactInfo(address, phone);
+  }
+
+  await user.save();
 
   const token = signToken({ userId: user._id.toString(), role: user.role });
   return { user, token };
