@@ -9,6 +9,10 @@ interface CheckoutItemInput {
 interface CheckoutInput {
   userId: string;
   items: CheckoutItemInput[];
+
+  // 🔐 data pribadi yang akan dienkripsi di model
+  address: string;
+  phone: string;
 }
 
 function generateInvoiceNumber(): string {
@@ -24,12 +28,15 @@ function generateInvoiceNumber(): string {
   return `INV-${year}${month}${day}-${timestamp}`;
 }
 
-
 export async function checkoutService(input: CheckoutInput) {
-  const { userId, items } = input;
+  const { userId, items, address, phone } = input;
 
   if (!items || items.length === 0) {
     throw new Error('Keranjang kosong');
+  }
+
+  if (!address || !phone) {
+    throw new Error('Alamat dan nomor telepon wajib diisi');
   }
 
   const productIds = items.map((i) => i.productId);
@@ -39,7 +46,13 @@ export async function checkoutService(input: CheckoutInput) {
     throw new Error('Beberapa produk tidak ditemukan');
   }
 
-  const orderItems = [];
+  const orderItems: {
+    productId: any;
+    name: string;
+    price: number;
+    quantity: number;
+    subtotal: number;
+  }[] = [];
   let totalAmount = 0;
 
   for (const item of items) {
@@ -64,16 +77,20 @@ export async function checkoutService(input: CheckoutInput) {
     });
   }
 
-  
   const invoiceNumber = generateInvoiceNumber();
 
-  const order = await Order.create({
+  // 🔐 gunakan constructor + helper supaya alamat/HP terenkripsi
+  const order = new Order({
     userId,
     items: orderItems,
     totalAmount,
     invoiceNumber,
     paymentStatus: 'PENDING',
   });
+
+  order.setContactInfo(address, phone);
+
+  await order.save();
 
   // simulasi payment + update stok
   for (const item of items) {
