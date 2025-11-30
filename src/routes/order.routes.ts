@@ -6,7 +6,15 @@ import { Order, IOrder } from '../models/order.model';
 
 const router = Router();
 
-// POST /api/checkout
+/**
+ * POST /api/checkout
+ * Body:
+ * {
+ *   "items": [{ "productId": "...", "quantity": 2 }, ...],
+ *   "address": "Jl. Contoh No. 123, Malang",
+ *   "phone": "08123456789"
+ * }
+ */
 router.post(
   '/checkout',
   authMiddleware,
@@ -31,7 +39,7 @@ router.post(
         phone,
       });
 
-      // di sini order sudah punya midtransRedirectUrl
+      // di sini order sudah punya midtransRedirectUrl (dari checkoutService)
       res.status(201).json({
         message: 'Checkout berhasil, silakan lakukan pembayaran via Midtrans',
         orderId: order._id,
@@ -45,7 +53,11 @@ router.post(
   }
 );
 
-// GET /api/orders → list semua order milik user login
+/**
+ * GET /api/orders → list semua order milik user login
+ * Mengembalikan address & phone dalam bentuk plaintext (hasil dekripsi),
+ * tapi menyembunyikan field terenkripsi & status raw Midtrans.
+ */
 router.get(
   '/orders',
   authMiddleware,
@@ -68,7 +80,6 @@ router.get(
           ...plain,
           address,
           phone,
-          // paymentStatus sudah ada di plain, tapi kita pastikan ada
           paymentStatus: order.paymentStatus,
         };
       });
@@ -80,7 +91,9 @@ router.get(
   }
 );
 
-// GET /api/orders/:id → detail 1 order milik user login
+/**
+ * GET /api/orders/:id → detail 1 order milik user login
+ */
 router.get(
   '/orders/:id',
   authMiddleware,
@@ -109,7 +122,7 @@ router.get(
         ...plain,
         address,
         phone,
-        paymentStatus: order.paymentStatus, // bisa PENDING / WAITING_PAYMENT / PAID / FAILED
+        paymentStatus: order.paymentStatus, // PENDING / WAITING_PAYMENT / PAID / FAILED / PAID_SIMULATED
       });
     } catch (err) {
       next(err);

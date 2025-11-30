@@ -6,8 +6,7 @@ const router = Router();
 
 router.post('/register', async (req, res, next) => {
   try {
-    // 🆕 baca address & phone juga
-    const { fullName, email, password, address, phone } = req.body;
+    const { fullName, email, password } = req.body;
 
     if (!fullName || !email || !password) {
       return res
@@ -15,16 +14,7 @@ router.post('/register', async (req, res, next) => {
         .json({ message: 'Full name, email and password are required' });
     }
 
-    const { user, token } = await registerUser(
-      fullName,
-      email,
-      password,
-      address,
-      phone
-    );
-
-    // kalau kamu mau kirim kembali address & phone plaintext:
-    const contact = user.getContactInfo();
+    const { user, token } = await registerUser(fullName, email, password);
 
     res.status(201).json({
       token,
@@ -33,8 +23,6 @@ router.post('/register', async (req, res, next) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
-        address: contact?.address ?? null,
-        phone: contact?.phone ?? null,
       },
     });
   } catch (err) {

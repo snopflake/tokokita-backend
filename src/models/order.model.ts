@@ -1,3 +1,4 @@
+// src/models/order.model.ts
 import mongoose, { Schema, Document } from 'mongoose';
 import { encrypt, decrypt } from '../config/security';
 
@@ -15,7 +16,13 @@ export interface IOrder extends Document {
   totalAmount: number;
   invoiceNumber: string;
 
-  paymentStatus: 'PENDING' | 'PAID_SIMULATED' | 'FAILED' | 'WAITING_PAYMENT' | 'PAID';
+  paymentStatus:
+    | 'PENDING'
+    | 'PAID_SIMULATED'
+    | 'FAILED'
+    | 'WAITING_PAYMENT'
+    | 'PAID';
+
   midtransOrderId?: string;
   midtransTransactionId?: string;
   midtransRedirectUrl?: string;
@@ -79,8 +86,8 @@ OrderSchema.methods.setContactInfo = function (address: string, phone: string) {
 // 🔧 getContactInfo → dekripsi saat dibaca
 OrderSchema.methods.getContactInfo = function () {
   return {
-    address: decrypt(this.addressEnc),
-    phone: decrypt(this.phoneEnc),
+    address: this.addressEnc ? decrypt(this.addressEnc) : '',
+    phone: this.phoneEnc ? decrypt(this.phoneEnc) : '',
   };
 };
 
