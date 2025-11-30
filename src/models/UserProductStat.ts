@@ -23,7 +23,11 @@ const UserProductStatSchema = new Schema<IUserProductStat>(
   { timestamps: true }
 );
 
+// ✅ index untuk rekomendasi (urut per userKey + score)
 UserProductStatSchema.index({ userKey: 1, score: -1 });
+
+// ✅ (opsional tapi bagus) index unik untuk kombinasi user + produk
+UserProductStatSchema.index({ userKey: 1, productId: 1 }, { unique: true });
 
 export const UserProductStat = mongoose.model<IUserProductStat>(
   'UserProductStat',

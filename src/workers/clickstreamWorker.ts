@@ -5,7 +5,8 @@ import amqp from 'amqplib';
 import { UserProductStat } from '../models/UserProductStat';
 import { ClickstreamPayload, ClickAction } from '../types/clickstream';
 
-const QUEUE_NAME = 'clickstream_events';
+const EXCHANGE_NAME = 'clickstream.exchange';   // ⬅️ SAMA dengan di rabbitmq.service.ts
+const QUEUE_NAME = 'clickstream_events';        // queue tempat worker consume
 
 function getWeight(action: ClickAction): number {
   switch (action) {
@@ -34,8 +35,16 @@ async function startWorker() {
   const conn = await amqp.connect(rabbitUrl);
   const channel = await conn.createChannel();
 
+  // 🔹 Pastikan exchange dan queue ada
+  await channel.assertExchange(EXCHANGE_NAME, 'fanout', { durable: true });
   await channel.assertQueue(QUEUE_NAME, { durable: true });
-  console.log(`[Worker] Waiting for messages in queue "${QUEUE_NAME}"`);
+
+  // 🔹 Bind queue ke exchange → pesan fanout akan masuk ke queue ini
+  await channel.bindQueue(QUEUE_NAME, EXCHANGE_NAME, '');
+
+  console.log(
+    `[Worker] Waiting for messages in queue "${QUEUE_NAME}" (bound to exchange "${EXCHANGE_NAME}")`
+  );
 
   channel.consume(
     QUEUE_NAME,
@@ -44,7 +53,7 @@ async function startWorker() {
 
       try {
         const payload = JSON.parse(msg.content.toString()) as ClickstreamPayload;
-        // tentukan key user untuk agregasi
+
         const userKey =
           payload.userId && payload.userId !== ''
             ? payload.userId
@@ -72,8 +81,7 @@ async function startWorker() {
         channel.ack(msg);
       } catch (err) {
         console.error('[Worker] Failed to process message:', err);
-        // buang pesan yg rusak supaya tidak nge-loop
-        channel.nack(msg, false, false);
+        channel.nack(msg, false, false); // buang pesan rusak
       }
     },
     { noAck: false }
